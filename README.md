@@ -1,0 +1,2 @@
+# lctopup
+gemini làm
