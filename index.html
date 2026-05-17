@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel QR Payment - Share Edition</title>
+    <title>QR Payment</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -76,6 +76,27 @@
             color: #000;
             padding: 8px 12px;
             cursor: pointer;
+        }
+
+        /* Phần nhập số tiền tùy chỉnh */
+        .custom-amount-area {
+            margin-bottom: 20px;
+        }
+
+        .custom-amount-area input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--pixel-border);
+            color: var(--pixel-text);
+            padding: 12px;
+            font-family: inherit;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        .custom-amount-area input:focus {
+            outline: none;
+            border-color: var(--pixel-accent);
         }
 
         /* Lưới nút giá tiền */
@@ -181,11 +202,16 @@
         <button class="btn-step" onclick="changeDiscount(1)">+</button>
     </div>
 
-    <span class="section-label">Mệnh giá</span>
+    <span class="section-label">Nhập số tiền (VNĐ)</span>
+    <div class="custom-amount-area">
+        <input type="number" id="customAmountInput" placeholder="0" min="0" oninput="onCustomAmountChange()">
+    </div>
+
+    <span class="section-label">Hoặc chọn mệnh giá</span>
     <div class="grid-prices" id="priceGrid"></div>
 
     <div class="qr-area">
-        <div id="qrPlaceholder" class="placeholder">CHỌN GIÁ ĐỂ LẤY QR</div>
+        <div id="qrPlaceholder" class="placeholder">CHỌN/NHẬP GIÁ ĐỂ LẤY QR</div>
         <img id="qrImage" src="" alt="Payment QR">
         
         <div class="action-buttons" id="actionGroup">
@@ -196,8 +222,8 @@
 </div>
 
 <script>
-    const BANK_ID = "vcb";
-    const ACCOUNT_NO = "9794467190";
+    const BANK_ID = "timo"; // Đã sửa thành Timo
+    const ACCOUNT_NO = "9021726031954"; // Đã sửa số tài khoản
     const ACCOUNT_NAME = encodeURIComponent("PHẠM ĐOÀN ANH KHOA");
     const CONTENT_TEXT = "zl 0382805094";
     const CONTENT_ENCODED = encodeURIComponent(CONTENT_TEXT);
@@ -229,24 +255,61 @@
         updateUI();
     }
 
+    // Hàm gọi khi bấm vào các ô mệnh giá có sẵn
     function selectPrice(amount) {
         selectedAmount = amount;
+        
+        // Cập nhật giá trị vào ô nhập số
+        document.getElementById('customAmountInput').value = amount;
+        
+        // Xóa class active của tất cả các ô, sau đó thêm vào ô được chọn
         document.querySelectorAll('.price-item').forEach(el => el.classList.remove('active'));
-        document.getElementById(`price-${amount}`).classList.add('active');
+        const activeBtn = document.getElementById(`price-${amount}`);
+        if(activeBtn) activeBtn.classList.add('active');
+        
+        updateUI();
+    }
+
+    // Hàm gọi khi tự nhập số tiền vào ô
+    function onCustomAmountChange() {
+        let val = parseInt(document.getElementById('customAmountInput').value);
+        if (isNaN(val) || val < 0) {
+            val = 0;
+        }
+        selectedAmount = val;
+
+        // Bỏ active hết các ô tiền
+        document.querySelectorAll('.price-item').forEach(el => el.classList.remove('active'));
+        
+        // Nếu số tiền nhập vào trùng khớp với một ô có sẵn thì highlight ô đó lên
+        const activeBtn = document.getElementById(`price-${val}`);
+        if(activeBtn) {
+            activeBtn.classList.add('active');
+        }
+
         updateUI();
     }
 
     function updateUI() {
         let discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
+        
+        // Cập nhật nhãn giá cho các ô cố định
         BASE_AMOUNTS.forEach(amount => {
             const btn = document.getElementById(`price-${amount}`);
             const discounted = Math.round(amount - (amount * discountPercent / 100));
             btn.innerHTML = `<span class="old-price">${formatNum(amount)}đ</span><span class="new-price">${formatNum(discounted)}đ</span>`;
-            if (amount === selectedAmount) {
-                finalAmountForQR = discounted;
-                showQR(discounted);
-            }
         });
+
+        // Xử lý tạo QR dựa trên selectedAmount hiện tại
+        if (selectedAmount > 0) {
+            finalAmountForQR = Math.round(selectedAmount - (selectedAmount * discountPercent / 100));
+            showQR(finalAmountForQR);
+        } else {
+            // Ẩn QR nếu chưa chọn hoặc nhập 0
+            document.getElementById('qrImage').style.display = 'none';
+            document.getElementById('qrPlaceholder').style.display = 'block';
+            document.getElementById('actionGroup').style.display = 'none';
+        }
     }
 
     function showQR(amount) {
